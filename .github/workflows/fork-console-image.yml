@@ -1,0 +1,89 @@
+name: Fork console image
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full commit SHA of the reviewed console patch
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-build:
+    if: github.repository == 'S13391355/open-asm'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - name: Validate immutable source reference
+        shell: bash
+        run: '[[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: arduino/setup-task@v3
+      - name: Install locked workspace dependencies
+        run: task console:install
+      - name: Prove the regression test rejects the release code
+        shell: bash
+        run: |
+          git show v0.13.0:console/src/pages/jobs-registry/runs.tsx > console/src/pages/jobs-registry/runs.tsx
+          set +e
+          task console:test:run -- src/__tests__/pages/job-run-links.test.tsx > /tmp/regression-red.log 2>&1
+          result=$?
+          set -e
+          cat /tmp/regression-red.log
+          git restore console/src/pages/jobs-registry/runs.tsx
+          test "$result" -ne 0
+          grep -E '1 failed.*2 passed' /tmp/regression-red.log
+      - name: Lint the workspace sequentially
+        run: task lint
+      - name: API unit tests
+        run: task test
+      - name: Console tests including the patched regression
+        run: task console:test:run
+      - name: Console type check
+        run: task console:typecheck
+      - name: Check no tooling changed tracked files
+        run: git diff --exit-code
+      - uses: docker/setup-buildx-action@v4
+      - name: Build console using the repository Dockerfile
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: console/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: local/oasm-console:v0.13.0-host-link-${{ inputs.source_sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/S13391355/open-asm
+            org.opencontainers.image.revision=${{ inputs.source_sha }}
+      - name: Export image and provenance
+        shell: bash
+        run: |
+          mkdir artefact
+          docker save "local/oasm-console:v0.13.0-host-link-$SOURCE_SHA" | gzip -1 > artefact/console.tar.gz
+          printf '%s\n' "$SOURCE_SHA" > artefact/source-commit.txt
+          docker image inspect "local/oasm-console:v0.13.0-host-link-$SOURCE_SHA" --format '{{.Id}}' > artefact/image-id.txt
+          cd artefact
+          sha256sum console.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: oasm-console-${{ inputs.source_sha }}
+          path: artefact/
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
