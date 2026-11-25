@@ -40,6 +40,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - uses: arduino/setup-task@v3
+        with:
+          repo-token: ${{ github.token }}
       - name: Install locked workspace dependencies
         run: task console:install
       - name: Prove the regression test rejects the release code
