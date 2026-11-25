@@ -7,6 +7,11 @@ on:
         description: Full commit SHA of the reviewed console patch
         required: true
         type: string
+      tests_only:
+        description: Rerun console tests without repeating passed checks or building
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,6 +24,7 @@ jobs:
     env:
       SOURCE_SHA: ${{ inputs.source_sha }}
       NODE_OPTIONS: --max-old-space-size=6144
+      NO_COLOR: '1'
     steps:
       - name: Validate immutable source reference
         shell: bash
@@ -37,6 +43,7 @@ jobs:
       - name: Install locked workspace dependencies
         run: task console:install
       - name: Prove the regression test rejects the release code
+        if: ${{ !inputs.tests_only }}
         shell: bash
         run: |
           git show v0.13.0:console/src/pages/jobs-registry/runs.tsx > console/src/pages/jobs-registry/runs.tsx
@@ -49,17 +56,22 @@ jobs:
           test "$result" -ne 0
           grep -E '1 failed.*2 passed' /tmp/regression-red.log
       - name: Lint the workspace sequentially
+        if: ${{ !inputs.tests_only }}
         run: task lint
       - name: API unit tests
+        if: ${{ !inputs.tests_only }}
         run: task test
       - name: Console tests including the patched regression
-        run: task console:test:run
+        run: task console:test:run -- --maxWorkers=1 --dangerouslyIgnoreUnhandledErrors=false
       - name: Console type check
+        if: ${{ !inputs.tests_only }}
         run: task console:typecheck
       - name: Check no tooling changed tracked files
         run: git diff --exit-code
       - uses: docker/setup-buildx-action@v4
+        if: ${{ !inputs.tests_only }}
       - name: Build console using the repository Dockerfile
+        if: ${{ !inputs.tests_only }}
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -72,6 +84,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/S13391355/open-asm
             org.opencontainers.image.revision=${{ inputs.source_sha }}
       - name: Export image and provenance
+        if: ${{ !inputs.tests_only }}
         shell: bash
         run: |
           mkdir artefact
@@ -81,6 +94,7 @@ jobs:
           cd artefact
           sha256sum console.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v6
+        if: ${{ !inputs.tests_only }}
         with:
           name: oasm-console-${{ inputs.source_sha }}
           path: artefact/
