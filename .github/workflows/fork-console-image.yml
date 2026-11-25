@@ -12,6 +12,11 @@ on:
         required: false
         type: boolean
         default: false
+      baseline_members_only:
+        description: Diagnose only the existing member-settings test on a baseline commit
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,7 +69,14 @@ jobs:
         if: ${{ !inputs.tests_only }}
         run: task test
       - name: Console tests including the patched regression
-        run: task console:test:run -- --maxWorkers=1 --dangerouslyIgnoreUnhandledErrors=false
+        env:
+          BASELINE_MEMBERS_ONLY: ${{ inputs.baseline_members_only }}
+        run: |
+          if [[ "$BASELINE_MEMBERS_ONLY" == 'true' ]]; then
+            task console:test:run -- src/__tests__/pages/members-settings.test.tsx --maxWorkers=1 --dangerouslyIgnoreUnhandledErrors=false
+          else
+            task console:test:run -- --maxWorkers=1 --dangerouslyIgnoreUnhandledErrors=false
+          fi
       - name: Console type check
         if: ${{ !inputs.tests_only }}
         run: task console:typecheck
