@@ -2,8 +2,10 @@ import type { DataSource } from 'typeorm';
 
 export const ASSET_CSV_HEADERS = ['Asset ID', 'Asset', 'Target', 'IP addresses', 'Known ports', 'Enabled', 'First seen', 'Last seen'];
 
+type CsvValue = string | number | boolean | Date | string[] | number[] | null;
+
 /** Quote every cell and prevent spreadsheet formula execution from asset data. */
-function csvCell(value: unknown): string {
+function csvCell(value: CsvValue): string {
   let text = Array.isArray(value) ? value.join('; ') : value instanceof Date ? value.toISOString() : String(value ?? '');
   if (/^\s*[=+\-@]/.test(text) || /^[\t\r\n]/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
@@ -11,7 +13,7 @@ function csvCell(value: unknown): string {
 
 /** Start from hosts so assets without service rows are included exactly once. */
 export async function assetInventoryCsv(source: Pick<DataSource, 'query'>, workspaceId: string): Promise<Buffer> {
-  const rows = await source.query<Record<string, unknown>[]>(`
+  const rows = await source.query<Record<string, CsvValue>[]>(`
     SELECT a.id AS "Asset ID", a.value AS "Asset", t.value AS "Target",
       ARRAY(SELECT DISTINCT ip FROM (
         SELECT d.value AS ip FROM dns_records d
