@@ -1,4 +1,7 @@
 {
+  "generate.assetsCsv": "Asset inventory (CSV)",
+  "toast.assetsCsvFailed": "Failed to generate asset inventory CSV report",
+  "toast.assetsCsvGenerated": "Asset inventory CSV report generated successfully",
   "severity.critical": "重大",
   "severity.high": "高",
   "severity.medium": "中",

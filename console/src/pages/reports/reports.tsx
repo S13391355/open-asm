@@ -40,6 +40,7 @@ import type { ReportResponseDto } from '@/services/apis/gen/queries';
 import {
   useReportsControllerDeleteReport,
   useReportsControllerGenerateSummaryReport,
+  useReportsControllerGenerateAssetsCsvReport,
   useReportsControllerGenerateVulReport,
   useReportsControllerGetMany,
 } from '@/services/apis/gen/queries';
@@ -54,7 +55,7 @@ const SEVERITY_OPTIONS = [
   { value: 'INFO', label: 'reports.severity.info', color: 'text-gray-500' },
 ] as const;
 
-type ReportType = 'SUMMARY' | 'VULNERABILITY';
+type ReportType = 'SUMMARY' | 'VULNERABILITY' | 'ASSETS_CSV';
 
 export default function Reports() {
   const t = useT();
@@ -146,6 +147,18 @@ export default function Reports() {
     },
   });
 
+  const assetsCsvMutation = useReportsControllerGenerateAssetsCsvReport({
+    mutation: {
+      onSuccess: () => {
+        setGenerateOpen(false);
+        resetForm();
+        toast.success(t('reports.toast.assetsCsvGenerated'));
+        refetch();
+      },
+      onError: () => toast.error(t('reports.toast.assetsCsvFailed')),
+    },
+  });
+
   const resetForm = () => {
     setReportType('SUMMARY');
     setDateRange(undefined);
@@ -153,7 +166,9 @@ export default function Reports() {
   };
 
   const handleGenerate = () => {
-    if (reportType === 'SUMMARY') {
+    if (reportType === 'ASSETS_CSV') {
+      assetsCsvMutation.mutate();
+    } else if (reportType === 'SUMMARY') {
       summaryMutation.mutate({
         data: {
           startDate: dateRange?.from?.toISOString(),
@@ -179,7 +194,7 @@ export default function Reports() {
 
   const reports = data?.data ?? [];
   const total = data?.total ?? 0;
-  const isPending = summaryMutation.isPending || vulMutation.isPending;
+  const isPending = summaryMutation.isPending || vulMutation.isPending || assetsCsvMutation.isPending;
 
   const columns: ColumnDef<ReportResponseDto>[] = [
     {
@@ -290,15 +305,21 @@ export default function Reports() {
                     {t('reports.generate.vulnerability')}
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="ASSETS_CSV" id="assets-csv" />
+                  <Label htmlFor="assets-csv" className="font-medium cursor-pointer">
+                    {t('reports.generate.assetsCsv')}
+                  </Label>
+                </div>
               </RadioGroup>
             </Field>
 
             {/* Date Range - for both types */}
-            <DatePickerWithRange
+            {reportType !== 'ASSETS_CSV' && <DatePickerWithRange
               value={dateRange}
               onChange={setDateRange}
               label={t('reports.generate.dateRange')}
-            />
+            />}
 
             {/* Min Severity - vuln only */}
             {reportType === 'VULNERABILITY' && (
@@ -418,6 +439,11 @@ export default function Reports() {
           </TabsContent>
           <TabsContent value="templates">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 mt-4">
+              <Button variant="outline" className="h-auto min-h-32 whitespace-normal" onClick={() => {
+                setReportType('ASSETS_CSV'); setGenerateOpen(true);
+              }}>
+                <Download className="mr-2 h-4 w-4" />{t('reports.generate.assetsCsv')}
+              </Button>
               {/* Summary Report Template */}
               <div
                 role="button"

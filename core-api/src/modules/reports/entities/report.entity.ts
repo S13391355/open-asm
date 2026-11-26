@@ -20,7 +20,7 @@ export class Report extends BaseEntity {
     default: 'SUMMARY',
   })
   /** QUERY: a saved attack surface query rendered as tables. */
-  type: 'SUMMARY' | 'VULNERABILITY' | 'QUERY';
+  type: 'SUMMARY' | 'VULNERABILITY' | 'QUERY' | 'ASSETS_CSV';
 
   @Column('text')
   path: string;

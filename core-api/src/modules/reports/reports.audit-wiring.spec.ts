@@ -17,6 +17,7 @@ describe('ReportsController audit wiring (M4.4 decorator events)', () => {
 
   it.each([
     ['generateSummaryReport', 'report.generated'],
+    ['generateAssetsCsvReport', 'report.generated'],
     ['previewSummaryReport', 'report.exported'],
     ['deleteReport', 'report.deleted'],
   ])('%s is wired to the %s event', (method, action) => {

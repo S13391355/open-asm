@@ -1,12 +1,14 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { StorageService } from '@/modules/storage/storage.service';
 import { Report } from './entities/report.entity';
 import { ReportsService } from './reports.service';
 import { VulnerabilityReportService } from './services/vulnerability-report.service';
 import { SummaryReportService } from './services/summary-report.service';
 import { AsqSavedQueriesService } from '@/modules/attack-surface-query/asq-saved-queries.service';
+import { GetManyReportsQueryDto } from './dto/reports.dto';
 
 jest.mock('./renderer/pdf-renderer', () => ({
   renderReportPdf: jest.fn().mockResolvedValue(Buffer.from('mock-pdf')),
@@ -31,6 +33,7 @@ describe('ReportsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportsService,
+        { provide: DataSource, useValue: { query: jest.fn().mockResolvedValue([]) } },
         {
           provide: getRepositoryToken(Report),
           useValue: {
@@ -54,6 +57,7 @@ describe('ReportsService', () => {
           useValue: {
             uploadFile: jest.fn(),
             deleteFile: jest.fn(),
+            getPresignedDownloadUrl: jest.fn().mockResolvedValue({ url: 'https://example.invalid/download', expiresIn: 60 }),
           },
         },
         {
@@ -89,6 +93,33 @@ describe('ReportsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('stores a private asset CSV report for the requesting workspace and user', async () => {
+    jest.spyOn(storageService, 'uploadFile').mockResolvedValue({ path: 'reports/assets.csv' });
+    await service.generateAssetsCsvReport('workspace-one', 'user-one');
+    expect(storageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringMatching(/^report-assets-.*\.csv$/), expect.any(Buffer), 'reports', 'text/csv; charset=utf-8',
+    );
+    expect(reportRepository.save).toHaveBeenCalledWith(expect.objectContaining({
+      workspace: { id: 'workspace-one' }, user: { id: 'user-one' }, type: 'ASSETS_CSV', path: 'reports/assets.csv',
+    }));
+  });
+
+  it.each([
+    ['ASSETS_CSV', 'text/csv; charset=utf-8'], ['SUMMARY', 'application/pdf'],
+  ])('presigns %s downloads with the correct MIME type', async (type, contentType) => {
+    const builder = {
+      where: jest.fn().mockReturnThis(), orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(), offset: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(1),
+      getMany: jest.fn().mockResolvedValue([{ ...mockReport, type }]),
+    };
+    jest.spyOn(reportRepository, 'createQueryBuilder').mockReturnValue(builder as never);
+    await service.getMany(Object.assign(new GetManyReportsQueryDto(), {
+      limit: 10, page: 1, sortBy: 'createdAt', sortOrder: 'DESC',
+    }), 'workspace-one');
+    expect(storageService.getPresignedDownloadUrl).toHaveBeenCalledWith(expect.objectContaining({ contentType }));
   });
 
   describe('generateQueryReport', () => {

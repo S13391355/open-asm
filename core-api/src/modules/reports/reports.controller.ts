@@ -133,6 +133,23 @@ export class ReportsController {
   }
 
   @Doc({
+    summary: 'Generate asset inventory CSV report',
+    description: 'Exports every asset in the workspace, including assets without discovered services.',
+    response: { serialization: DefaultMessageResponseDto },
+    request: { getWorkspaceId: true },
+  })
+  @PublishEvent(EVENT_CATALOG.report.generated, { metadata: () => ({ reportType: 'assets_csv', format: 'csv' }) })
+  @WorkspaceAccess('report.write', 'asset.read')
+  @Post('generate/assets-csv')
+  async generateAssetsCsvReport(
+    @WorkspaceId() workspaceId: string,
+    @UserId() userId: string,
+  ): Promise<DefaultMessageResponseDto> {
+    await this.reportsService.generateAssetsCsvReport(workspaceId, userId);
+    return { message: 'Asset inventory CSV report generated successfully' };
+  }
+
+  @Doc({
     summary: 'Generate vulnerability PDF report',
     description: 'Generates a vulnerability assessment PDF report.',
     response: {

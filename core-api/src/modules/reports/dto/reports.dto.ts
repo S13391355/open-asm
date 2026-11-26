@@ -5,6 +5,7 @@ import { IsArray, IsOptional, IsString, IsEnum, IsUUID } from 'class-validator';
 const ReportType = {
   SUMMARY: 'SUMMARY',
   VULNERABILITY: 'VULNERABILITY',
+  ASSETS_CSV: 'ASSETS_CSV',
 } as const;
 export type ReportType = (typeof ReportType)[keyof typeof ReportType];
 
@@ -21,7 +22,7 @@ export class ReportResponseDto {
   @ApiProperty()
   fileName: string;
 
-  @ApiProperty({ enum: ['SUMMARY', 'VULNERABILITY'] })
+  @ApiProperty({ enum: ['SUMMARY', 'VULNERABILITY', 'ASSETS_CSV'] })
   type: ReportType;
 
   @ApiProperty()
@@ -171,7 +172,7 @@ export class PreviewVulQueryDto {
 export class GetManyReportsQueryDto extends GetManyBaseQueryParams {
   @ApiProperty({
     required: false,
-    enum: ['SUMMARY', 'VULNERABILITY'],
+    enum: ['SUMMARY', 'VULNERABILITY', 'ASSETS_CSV'],
     description: 'Filter by report type',
   })
   @IsOptional()

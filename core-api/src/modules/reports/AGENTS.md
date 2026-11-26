@@ -1,10 +1,11 @@
 # reports module
 
-PDF reports for a workspace: a summary (attack surface) report and a vulnerability report, rendered server-side with `@react-pdf/renderer` and stored in the `reports` bucket.
+Workspace reports: summary/vulnerability/query PDFs and an asset inventory CSV, stored privately in the `reports` bucket.
 
 ## Layout
 
 - `reports.controller.ts`: routes under `reports`.
+- `services/asset-inventory-csv.ts`: one row per host, including disabled hosts and hosts without services; parameterised workspace scope, quoted CSV cells and spreadsheet-formula protection.
 - `reports.service.ts`: `ReportsService` (list with presigned links, generate + upload, preview, delete).
 - `services/summary-report.service.ts`, `services/vulnerability-report.service.ts`: build the data objects (`types/report-data.type.ts`, `types/vulnerability-report-data.type.ts`).
 - `renderer/`: React PDF documents (`summary/SummaryReportDocument.tsx`, `vuln/VulnReportDocument.tsx`), shared `components/`, `theme.ts`, `helpers.ts`, `fonts.ts`, entry `pdf-renderer.tsx` (`renderReportPdf`).
@@ -20,6 +21,7 @@ PDF reports for a workspace: a summary (attack surface) report and a vulnerabili
 | `GET reports/preview/vulnerability` | `report.read` | none |
 | `POST reports/generate/summary` | `report.write` | `report.generated` (metadata `reportType: summary`) |
 | `POST reports/generate/vulnerability` | `report.write` | none |
+| `POST reports/generate/assets-csv` | `report.write` AND `asset.read` | `report.generated` (`reportType: assets_csv`, `format: csv`) |
 | `POST reports/generate/query` (`{ savedQueryId }`) | `report.write`, plus the read permission of every resource the saved query reads | `report.generated` (metadata `reportType: query`) |
 | `DELETE reports/:id` | `report.write` | `report.deleted` |
 
@@ -29,12 +31,12 @@ PDF reports for a workspace: a summary (attack surface) report and a vulnerabili
 
 ## Data model
 
-- `reports` (`Report`, extends `BaseEntity`): `workspaceId` (ManyToOne, CASCADE, no explicit column property), `userId` (CASCADE), `type` varchar `'SUMMARY' | 'VULNERABILITY' | 'QUERY'` (default `SUMMARY`), `path` = `reports/<fileName>`, `fileName` = `report-<type>-<token>-<ms>.pdf`. Hard delete.
+- `reports` (`Report`, extends `BaseEntity`): `workspaceId` (ManyToOne, CASCADE, no explicit column property), `userId` (CASCADE), `type` varchar `'SUMMARY' | 'VULNERABILITY' | 'QUERY' | 'ASSETS_CSV'` (default `SUMMARY`), `path` = `reports/<fileName>`. Asset inventories use `.csv`; other reports use `.pdf`. Hard delete.
 - `QUERY` reports render a saved attack surface query (`services/query-report.ts` flattens each query to a table, at most `QUERY_REPORT_MAX_ROWS` rows; `renderer/query/QueryReportDocument.tsx`), run as the caller in one consistent snapshot, with the saved query's params at their defaults (`AsqSavedQueriesService.runSpec`).
 
 ## Invariants
 
-- The `reports` bucket is `private` in `StorageService`. `getMany` presigns each row's download URL on every list call (`contentType: application/pdf`, attachment with the file name); never return `path` as a URL.
+- The `reports` bucket is `private` in `StorageService`. `getMany` presigns each row's download URL on every list call (`text/csv; charset=utf-8` for `ASSETS_CSV`, `application/pdf` otherwise, attachment with the file name); never return `path` as a URL. `ASSETS_CSV` uses the existing varchar type column, without a schema migration.
 - Every query is scoped by workspace: the row lookup by `{ id, workspace: { id } }` (404 otherwise) and the vulnerability data through `asset → target → workspace` joins (`applyWorkspaceFilter`). Filters `targetIds` / `vulnIds` are applied on top of that scope, not instead of it.
 - Report data counts open findings only (`openVulnerabilityCondition`); the vulnerability report's full list excludes `info`.
 - The security score comes from `StatisticService.calculateSecurityScore`, the same formula as the dashboard. Change it there, not here.
@@ -46,6 +48,7 @@ PDF reports for a workspace: a summary (attack surface) report and a vulnerabili
 - Imports `StatisticModule` (`ReportStatisticsService`: `getCountForWorkspace`, `getSeverityCounts`, `getVulnerabilityTrends`, `getTopAssetsWithVulnerabilities`, `getTargetVulnerabilityStats`) and registers repositories for `Vulnerability`, `Target`, `AssetService`, `AssetTag`, `Workspace` to query those tables directly.
 - Imports `AttackSurfaceQueryModule` (`AsqSavedQueriesService`) for query reports; the route uses `AsqErrorInterceptor` so query errors keep their status.
 - Imports `StorageModule` for `StorageService`. Audit actions for these routes are listed in `audit/constants/audit-events.ts`.
+- Asset CSV generation uses the existing `DataSource` for parameterised reads of hosts, targets, DNS/IP observations and service ports; it does not require service rows or introduce a foreign entity repository.
 
 ## Gotchas
 
@@ -56,3 +59,5 @@ PDF reports for a workspace: a summary (attack surface) report and a vulnerabili
 ## Testing
 
 `reports.service.spec.ts`, `reports.controller.spec.ts`, `reports.audit-wiring.spec.ts` (asserts the `@PublishEvent` metadata per handler). No spec renders a real PDF or covers the data services in `services/`.
+
+`services/asset-inventory-csv.spec.ts` covers empty-service hosts, CSV escaping, formula protection and workspace SQL scope. `task api:openapi:reports BASELINE=<matching-api-schema.json>` boots only the report contract with mocked services and deny-all guards, without a listener; it replaces report routes/schemas in the supplied baseline before `task gen-api` regenerates the client.

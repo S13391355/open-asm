@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { generateToken } from '@/common/utils/gen-token.util';
 import { getManyResponse } from '@/common/utils/get-many-response.util';
 import { StorageService } from '@/modules/storage/storage.service';
@@ -17,6 +17,7 @@ import { AsqSavedQueriesService } from '@/modules/attack-surface-query/asq-saved
 import type { QueryBatchResult, QueryScope } from '@/modules/attack-surface-query/domain/query.types';
 import { toReportTables } from './services/query-report';
 import { NotFoundError } from '@/common/errors/domain.errors';
+import { assetInventoryCsv } from './services/asset-inventory-csv';
 
 @Injectable()
 export class ReportsService {
@@ -30,6 +31,7 @@ export class ReportsService {
     private readonly vulnerabilityReportService: VulnerabilityReportService,
     private readonly summaryReportService: SummaryReportService,
     private readonly savedQueries: AsqSavedQueriesService,
+    private readonly dataSource: DataSource,
   ) {
     this.logoPath = path.join(process.cwd(), 'public', 'images', 'logo.png');
     this.loadLogo();
@@ -88,7 +90,7 @@ export class ReportsService {
             bucket,
             key: filePath,
             fileName: report.fileName,
-            contentType: 'application/pdf',
+            contentType: report.type === 'ASSETS_CSV' ? 'text/csv; charset=utf-8' : 'application/pdf',
           });
         return { ...report, downloadUrl, downloadExpiresIn: expiresIn };
       }),
@@ -106,6 +108,18 @@ export class ReportsService {
     } catch {
       // ignore — logo is optional
     }
+  }
+
+  async generateAssetsCsvReport(workspaceId: string, userId: string): Promise<void> {
+    const buffer = await assetInventoryCsv(this.dataSource, workspaceId);
+    const fileName = `report-assets-${generateToken(24)}-${Date.now()}.csv`;
+    const { path: uploadPath } = await this.storageService.uploadFile(
+      fileName, buffer, 'reports', 'text/csv; charset=utf-8',
+    );
+    await this.reportRepo.save({
+      workspace: { id: workspaceId }, user: { id: userId },
+      type: 'ASSETS_CSV', path: uploadPath, fileName,
+    });
   }
 
   async generateReport(

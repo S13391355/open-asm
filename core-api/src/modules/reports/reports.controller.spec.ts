@@ -15,6 +15,7 @@ describe('ReportsController workspace permission guards', () => {
     ['previewVulReport', 'GET /preview/vulnerability', ['report.read']],
     ['generateSummaryReport', 'POST /generate/summary', ['report.write']],
     ['generateVulReport', 'POST /generate/vulnerability', ['report.write']],
+    ['generateAssetsCsvReport', 'POST /generate/assets-csv', ['report.write', 'asset.read']],
     ['deleteReport', 'DELETE /:id', ['report.write']],
   ];
 
