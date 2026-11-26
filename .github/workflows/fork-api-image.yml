@@ -7,6 +7,11 @@ on:
         description: Full commit SHA of the reviewed worker identity patch
         required: true
         type: string
+      checks_only:
+        description: Validate upstream integration without rebuilding the deployment image
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,6 +45,7 @@ jobs:
       - name: Install locked workspace dependencies
         run: task console:install
       - name: Prove the worker regression fails against the release
+        if: ${{ !inputs.checks_only }}
         shell: bash
         run: |
           git show v0.13.0:core-api/src/modules/workers/workers.service.ts > core-api/src/modules/workers/workers.service.ts
@@ -60,7 +66,9 @@ jobs:
       - name: Check no tooling changed tracked files
         run: git diff --exit-code
       - uses: docker/setup-buildx-action@v4
+        if: ${{ !inputs.checks_only }}
       - name: Build patched API using the repository Dockerfile
+        if: ${{ !inputs.checks_only }}
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -74,6 +82,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/S13391355/open-asm
             org.opencontainers.image.revision=${{ inputs.source_sha }}
       - name: Export image and provenance
+        if: ${{ !inputs.checks_only }}
         shell: bash
         run: |
           mkdir artefact
@@ -83,6 +92,7 @@ jobs:
           cd artefact
           sha256sum api.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v6
+        if: ${{ !inputs.checks_only }}
         with:
           name: oasm-api-${{ inputs.source_sha }}
           path: artefact/
