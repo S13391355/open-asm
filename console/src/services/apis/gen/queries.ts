@@ -7549,6 +7549,7 @@ export type ReportResponseDtoType =
 export const ReportResponseDtoType = {
   SUMMARY: 'SUMMARY',
   VULNERABILITY: 'VULNERABILITY',
+  ASSETS_CSV: 'ASSETS_CSV',
 } as const;
 
 export type ReportResponseDto = {
@@ -8946,6 +8947,7 @@ export type ReportsControllerGetManyType =
 export const ReportsControllerGetManyType = {
   SUMMARY: 'SUMMARY',
   VULNERABILITY: 'VULNERABILITY',
+  ASSETS_CSV: 'ASSETS_CSV',
 } as const;
 
 export type ReportsControllerPreviewSummaryReportParams = {
@@ -62970,6 +62972,336 @@ export function useEventsControllerStream<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+/**
+ * Language codes the backend has translations for. The console uses this to offer a language switcher.
+ * @summary List supported languages
+ */
+export const i18nDictionaryControllerGetLanguages = (
+  options?: SecondParameter<typeof orvalClient>,
+  signal?: AbortSignal,
+) => {
+  return orvalClient<AppResponseSerialization>(
+    { url: `/api/i18n/languages`, method: 'GET', signal },
+    options,
+  );
+};
+
+export const getI18nDictionaryControllerGetLanguagesQueryKey = () => {
+  return [`/api/i18n/languages`] as const;
+};
+
+export const getI18nDictionaryControllerGetLanguagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+      TError,
+      TData
+    >
+  >;
+  request?: SecondParameter<typeof orvalClient>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getI18nDictionaryControllerGetLanguagesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>
+  > = ({ signal }) =>
+    i18nDictionaryControllerGetLanguages(requestOptions, signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type I18nDictionaryControllerGetLanguagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>
+>;
+export type I18nDictionaryControllerGetLanguagesQueryError = unknown;
+
+export function useI18nDictionaryControllerGetLanguages<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+          TError,
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useI18nDictionaryControllerGetLanguages<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+          TError,
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useI18nDictionaryControllerGetLanguages<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List supported languages
+ */
+
+export function useI18nDictionaryControllerGetLanguages<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetLanguages>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions =
+    getI18nDictionaryControllerGetLanguagesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+/**
+ * Merged namespaces from backend memory (same source the API translates with). Missing languages fall back only when the service resolves them; unknown codes give 404.
+ * @summary Get UI dictionary for a language
+ */
+export const i18nDictionaryControllerGetDictionary = (
+  lang: string,
+  options?: SecondParameter<typeof orvalClient>,
+  signal?: AbortSignal,
+) => {
+  return orvalClient<AppResponseSerialization>(
+    { url: `/api/i18n/${lang}`, method: 'GET', signal },
+    options,
+  );
+};
+
+export const getI18nDictionaryControllerGetDictionaryQueryKey = (
+  lang: string,
+) => {
+  return [`/api/i18n/${lang}`] as const;
+};
+
+export const getI18nDictionaryControllerGetDictionaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+  TError = unknown,
+>(
+  lang: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getI18nDictionaryControllerGetDictionaryQueryKey(lang);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>
+  > = ({ signal }) =>
+    i18nDictionaryControllerGetDictionary(lang, requestOptions, signal);
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: lang !== null && lang !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type I18nDictionaryControllerGetDictionaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>
+>;
+export type I18nDictionaryControllerGetDictionaryQueryError = unknown;
+
+export function useI18nDictionaryControllerGetDictionary<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+  TError = unknown,
+>(
+  lang: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+          TError,
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useI18nDictionaryControllerGetDictionary<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+  TError = unknown,
+>(
+  lang: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+          TError,
+          Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useI18nDictionaryControllerGetDictionary<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+  TError = unknown,
+>(
+  lang: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get UI dictionary for a language
+ */
+
+export function useI18nDictionaryControllerGetDictionary<
+  TData = Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+  TError = unknown,
+>(
+  lang: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof i18nDictionaryControllerGetDictionary>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getI18nDictionaryControllerGetDictionaryQueryOptions(
+    lang,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const mcpControllerHandleSSE = (
   options?: SecondParameter<typeof orvalClient>,
   signal?: AbortSignal,
@@ -68905,6 +69237,92 @@ export const usePostAdminHasPermission = <
 > => {
   return useMutation(
     getPostAdminHasPermissionMutationOptions(options),
+    queryClient,
+  );
+};
+
+/**
+ * Exports every asset in the workspace, including assets without discovered services.
+ * @summary Generate asset inventory CSV report
+ */
+export const reportsControllerGenerateAssetsCsvReport = (
+  options?: SecondParameter<typeof orvalClient>,
+  signal?: AbortSignal,
+) => {
+  return orvalClient<DefaultMessageResponseDto>(
+    { url: `/api/reports/generate/assets-csv`, method: 'POST', signal },
+    options,
+  );
+};
+
+export const getReportsControllerGenerateAssetsCsvReportMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reportsControllerGenerateAssetsCsvReport>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof orvalClient>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reportsControllerGenerateAssetsCsvReport>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ['reportsControllerGenerateAssetsCsvReport'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      'mutationKey' in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reportsControllerGenerateAssetsCsvReport>>,
+    void
+  > = () => {
+    return reportsControllerGenerateAssetsCsvReport(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReportsControllerGenerateAssetsCsvReportMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof reportsControllerGenerateAssetsCsvReport>>
+  >;
+
+export type ReportsControllerGenerateAssetsCsvReportMutationError = unknown;
+
+/**
+ * @summary Generate asset inventory CSV report
+ */
+export const useReportsControllerGenerateAssetsCsvReport = <
+  TError = unknown,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof reportsControllerGenerateAssetsCsvReport>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof orvalClient>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof reportsControllerGenerateAssetsCsvReport>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getReportsControllerGenerateAssetsCsvReportMutationOptions(options),
     queryClient,
   );
 };
