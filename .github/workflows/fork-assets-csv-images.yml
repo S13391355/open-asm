@@ -1,0 +1,132 @@
+name: Fork asset CSV images
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Reviewed full source commit
+        required: true
+        type: string
+      phase:
+        description: Generate client first; build after generated client is committed
+        required: true
+        type: choice
+        options: [codegen, build]
+permissions:
+  contents: read
+jobs:
+  verify-build:
+    if: github.repository == 'S13391355/open-asm'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      NODE_OPTIONS: --max-old-space-size=6144
+      NO_COLOR: '1'
+    steps:
+      - name: Validate immutable source
+        run: '[[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .build-meta
+          sparse-checkout: .ci
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: arduino/setup-task@v3
+        with:
+          repo-token: ${{ github.token }}
+      - name: Install locked dependencies
+        run: task console:install
+      - name: Generate report contract and API client
+        run: |
+          task api:openapi:reports BASELINE="$GITHUB_WORKSPACE/.build-meta/.ci/oasm-api-openapi-v013.json"
+          task gen-api
+      - name: Export generated contract and client
+        if: inputs.phase == 'codegen'
+        run: |
+          mkdir generated
+          cp console/src/services/apis/gen/queries.ts generated/queries.ts
+          cp .open-api/open-api.json generated/open-api.json
+          printf '%s\n' "$SOURCE_SHA" > generated/source-commit.txt
+      - uses: actions/upload-artifact@v6
+        if: inputs.phase == 'codegen'
+        with:
+          name: asset-csv-client-${{ inputs.source_sha }}
+          path: generated/
+          retention-days: 30
+      - name: Require reproducible committed client
+        if: inputs.phase == 'build'
+        run: git diff --exit-code -- console/src/services/apis/gen/queries.ts
+      - name: Lint sequentially
+        if: inputs.phase == 'build'
+        run: task lint
+      - name: API tests
+        if: inputs.phase == 'build'
+        run: task test
+      - name: Type check both applications
+        if: inputs.phase == 'build'
+        run: |
+          task api:typecheck
+          task console:typecheck
+      - name: Preserve console navigation regression
+        if: inputs.phase == 'build'
+        run: task console:test:run -- src/__tests__/pages/job-run-links.test.tsx
+      - name: Require clean source after checks
+        if: inputs.phase == 'build'
+        run: git diff --exit-code
+      - uses: docker/setup-buildx-action@v4
+        if: inputs.phase == 'build'
+      - name: Build API image
+        if: inputs.phase == 'build'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: core-api/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: local/oasm-api:v0.13.0-assets-csv-${{ inputs.source_sha }}
+          build-args: APP_VERSION=v0.13.0-assets-csv
+          labels: |
+            org.opencontainers.image.source=https://github.com/S13391355/open-asm
+            org.opencontainers.image.revision=${{ inputs.source_sha }}
+      - name: Build console image
+        if: inputs.phase == 'build'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: console/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: local/oasm-console:v0.13.0-assets-csv-${{ inputs.source_sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/S13391355/open-asm
+            org.opencontainers.image.revision=${{ inputs.source_sha }}
+      - name: Export images and provenance
+        if: inputs.phase == 'build'
+        run: |
+          mkdir artefact
+          for component in api console; do
+            image="local/oasm-$component:v0.13.0-assets-csv-$SOURCE_SHA"
+            docker save "$image" | gzip -1 > "artefact/$component.tar.gz"
+            docker image inspect "$image" --format '{{.Id}}' > "artefact/$component-image-id.txt"
+          done
+          printf '%s\n' "$SOURCE_SHA" > artefact/source-commit.txt
+          cd artefact
+          sha256sum api.tar.gz console.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        if: inputs.phase == 'build'
+        with:
+          name: asset-csv-images-${{ inputs.source_sha }}
+          path: artefact/
+          compression-level: 0
+          retention-days: 30
